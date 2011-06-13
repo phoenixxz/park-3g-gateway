@@ -21,17 +21,10 @@
 #define FALSE 0
 #define NODENUM 14
 #define DIV 3
-/*************************Global Var***************************/
-static char ip[15];/*remote pc ip address;*/
-int ret;           /*temp return value;*/
-sem_t sem1,sem2,sem_dog,sem_sig; /*declare semaphore */
-int fd_watchdog; 
-int soft_dog[2]={10,10};
-static int come=0;
-/*************************Global Var***************************/
-
 static int sock;
-static char udp_recv[2];
+static int come=0;
+static unsigned char udp_recv[2];
+static char ip[15];
 unsigned int car_number,car_direct_left,car_direct_right;
 int interfailcnt=0;
 int reg_inter_fail=0;
@@ -41,6 +34,7 @@ int xxz=1,cnt=0;
 int fault_cnt=0,sig_cnt=0,sig_cnt1=0;
 int flag_inter=1;
 int m=0,n=0;
+int soft_dog[2]={10,10};
 int speed_arr[] = {B115200, B38400, B19200, B9600, B4800, B2400, B1200, B300};
 int name_arr[] = {115200, 38400, 19200, 9600, 4800, 2400, 1200, 300};
 /*******************signal added by xxz**************/
@@ -50,7 +44,6 @@ unsigned char recv_buf[128];
 struct timeval timeout;
 int transfer_started=0;
 
-unsigned char recvs[4]="aaaa";//for led display
 int imright=0,error=0;
 int c, res; 
 struct sigaction saio;           
@@ -64,11 +57,11 @@ unsigned char led_send_right[4];
 int nread;
 int all;//total remain cars
 unsigned char buff[512];
-typedef unsigned short  _packet_header;      //0xaa55 2
-typedef unsigned char   _packet_length;//1
+typedef unsigned short  _packet_header;      //0xaa55
+typedef unsigned char   _packet_length;
 typedef unsigned char   _packet_type;        //1 
-typedef unsigned short  _net_id;             // 2
-typedef unsigned short  _node_id; //2  7th 8th
+typedef unsigned short  _net_id;             //101 
+typedef unsigned short  _node_id; 
 typedef unsigned short  _parent_id; 
 typedef unsigned short  _park_state;
 typedef unsigned int _time_stamp;
@@ -85,18 +78,10 @@ void set_speed(int fd,int speed);
 
 int fd_temfile;
 pthread_mutex_t mutex1,mutex2,mutex_dog;  
+sem_t sem1,sem2,sem_dog,sem_sig; 
 int flag[14];
-unsigned char bridge_buff[14][26];
-//static int flag_1=0,flag_2=0,flag_3=0,flag_4=0,flag_5=0,flag_6=0,flag_7=0,flag_8=0,flag_9=0,flag_10=0,flag_11=0,flag_12=0,flag_13=0,flag_14=0;
-//int fd;
-//char *dev_tty="/dev/ttyUSB0";//xxz
+unsigned char bridge_buff[15][26];
 
-#if 0
-int speed_arr[] = { B38400, B19200, B9600, B4800, B2400, B1200, B300,
-    B38400, B19200, B9600, B4800, B2400, B1200, B300, };
-int name_arr[] = {38400, 19200, 9600, 4800, 2400, 1200, 300,
-    38400, 19200, 9600, 4800, 2400, 1200, 300, };
-#endif
 //#if 0
 typedef struct stru_packet{ 
     _packet_header  packetHeader;     //0xaa55
@@ -128,11 +113,11 @@ typedef struct park
 } info;
 info park_info;
 //#endif
+int ret;
 pthread_t id_read_tty,id_udp_send,id_udp_recv,id_led_display,id_reg_inter;
 
 //#if 0
 void *thread_read_tty();
-//void thread_read_tty();
 void *thread_udp_send();
 void *thread_udp_recv();
 void *reg();
@@ -142,35 +127,64 @@ void register_interrupt();
 
 void analyse(char * buff);
 
-/*****************************New function*******************************/
-int check_ip(int argc_local,char **argv_local);
-void error_log(const char *string);
-int init_watchdog();
-
-/*****************************New function*******************************/
 //static char bridge_buff[512];
 int main(int argc,char **argv)
 {
-/*check ip remote PC IP address*/
-    if((ret=check_ip(argc,argv))==1)
+    /**************sem_init********************************/
+    //fd_temfile=creat("/xxz",S_IRWXU);
+
+    if(argc==1)
     {
-	printf("success,%d\n",ret);
+	memcpy(ip,"210.77.19.134",13);
+	printf("%s\n",ip);
     }
     else
     {
-	printf("ret is %d \n",ret);
-//	error_log("check ip erro");
-	return 0;
+	memcpy(ip,argv[1],strlen(argv[1]));
+	printf("%s\n",ip);
+	printf("%d\n",strlen(argv[1]));
+    }
+    int fd_restart=open("/dev/ttyUSB5",O_RDWR|O_NOCTTY|O_NONBLOCK);//|O_NOCTTY|O_NDELAY|O_NONBLOCK);//|O_NONBLOCK);
+    if(fd_restart<0)
+    {
+	system("ifconfig eth0 210.77.19.111");
+	exit(0);
+    }
+    else
+    {
+	close(fd_restart);
     }
 
-    /**************************************************************/
-    //net_connect();
-    //run_check_connect();
+    int fd_l=open_dev("/dev/ttySAC2");
+    int fd_r=open_dev("/dev/ttySAC1");
+    set_speed(fd_l,115200);
+    set_speed(fd_r,115200);
+    if(fd_l<0)
+    {
+	printf("open ttysac1 erro!\n");
+    }
+    if(fd_r<0)
+    {
+	printf("open ttysac1 erro!\n");
+    }
+    char cl[4]={0,0,0,2};
+    char cr[4]={8,0,2,1};
+    int nl=write(fd_l,(unsigned char *)cl,4);
+    {
+	if(nl<0)
+	    printf("write err0!\n");
+    }
+    int nr=write(fd_r,(unsigned char *)cr,4);
+    {
+	if(nr<0)
+	    printf("write err0!\n");
+    }
+    close(fd_r);
+    close(fd_l);
 
-
-
-
-    /**************************************************************/
+    system("/call&");
+    sleep(100);
+    int wt_fd; 
     pid_t pid;
     if((pid=fork())<0)
     {
@@ -178,34 +192,49 @@ int main(int argc,char **argv)
     }
     else if(pid==0)
     {
-	char *env_init[]={"USER=xxz","PATH=/home/xxz/project/arm_update/",NULL};
-	if(execle("/home/xxz/project/arm_update/udpclient","udpclient",(char *)0,env_init)<0);
-	{
-	    perror("run udp-client error\n");
-	}
+	printf("this is child process\n");
+	//system("./arm_pppdcall_MU301.MU301");
+	//system("./arm_pppdcall_MU301.MU301&");
+	//system("./sh");
     }
-    else /*main*/
+    else
     {
-	printf("in main :%d\n",pid);
-	printf("in main :%d\n",pid);
 
-#if 0
 	sock = socket(AF_INET,SOCK_DGRAM,IPPROTO_UDP);
 	printf("sock is %d\n",sock);
 	if(sock < 0)
 	{
 	    printf("socket failed.\r\n");
 	}
-#endif
 
 
-//	pthread_mutex_init(&mutex1,NULL); 
-//	pthread_mutex_init(&mutex2,NULL);
-//	pthread_mutex_init(&mutex_dog,NULL);
+	//	printf("waiting for dial------------>>>>>>");
+	//	sleep(10);
+	pthread_mutex_init(&mutex1,NULL); 
+	pthread_mutex_init(&mutex2,NULL);
+	pthread_mutex_init(&mutex_dog,NULL);
 	sem_init(&sem1,0,1);
 	sem_init(&sem2,0,1);
 	sem_init(&sem_dog,0,1);
 	sem_init(&sem_sig,0,1);
+
+	/*init the car number,at the beginning it should be the most*/
+	int h,k;
+	for(h=0;h<NODENUM;h++)
+	{
+	    for(k=0;k<4;k++)
+	    {
+		park_info.left[h][k]=1;
+		park_info.right[h][k]=1;
+	    }
+	}
+	ret = pthread_create(&id_udp_recv,NULL,(void *)thread_udp_recv,NULL);
+	if(ret != 0)
+	{
+	    printf("Create pthread error!\n");
+	}
+	sleep(1);
+
 
 	ret = pthread_create(&id_udp_send,NULL,(void *)thread_udp_send,NULL);
 	if(ret != 0)
@@ -213,18 +242,13 @@ int main(int argc,char **argv)
 	    printf("Create pthread error!\n");
 	}
 	sleep(1);
-	ret = pthread_create(&id_udp_recv,NULL,(void *)thread_udp_recv,NULL);
-	if(ret != 0)
-	{
-	    printf("Create pthread error!\n");
-	}
-	sleep(1);
+
+
 	ret=pthread_create(&id_led_display,NULL,(void *)thread_led_display,NULL);
 	if(ret!= 0)
 	{
 	    printf("Create pthread error!\n");
 	}
-
 	/***************signal***added by xxz*************************/
 	struct termios term;
 	speed_t baud_rate_i,baud_rate_o;
@@ -234,68 +258,101 @@ int main(int argc,char **argv)
 	else
 	    printf("open ttySAC0 ok!\n");
 	set_speed(fd_sig,115200);
-	printf("fd_sig set speed ok\n");
-	if (set_Parity(fd_sig,8,1,'N')== FALSE)
+	if (set_patity(fd_sig,8,1,'N')== FALSE)
 	{
-	    printf("Set Parity Error\n");
+	    printf("Set patity Error\n");
 	    exit(1);
 	}
 	int i=0;
+	int time=30;
 
 	register_interrupt();
 
-	ret=init_watchdog();
-	feed_dog();
-	while(1);
+	wt_fd = open("/dev/watchdog", O_RDWR);
+	ioctl(wt_fd, WDIOC_SETTIMEOUT, &time);
+	if(wt_fd<=0)
+	{
+	    printf("open watchdog  device is wrong!\n");
+	    return 0;
+	}
+	else
+	{
+	    printf("open the watchdog\n");
+	}
+	while(1)
+	{
+	    //printf("begin##############xxz is %d#####################\n",xxz);
+	    count++;
+	    if(count>10000)
+		count=0;
+	    //	if(count>21)
+	    //		exit(0);
+	    if(reg_flag==0&&xxz==1||(count%5==0&&xxz==1))
+		//if(count%3==0&&xxz==1)
+	    {
+		interfailcnt++;
+		ret=pthread_create(&id_reg_inter,NULL,(void *)reg,NULL);
+		usleep(10000);
+		if(reg_flag==0)
+		{
+
+		    pthread_cancel(id_reg_inter);
+		    printf("have canceled....................\n");
+		    pthread_join(id_reg_inter,NULL);
+		    //reg_flag=1;
+		}
+		else
+		{
+		    pthread_join(id_reg_inter,NULL);
+		}
+		//if(reg_inter_fail==1)
+		//	reg_inter_fail=0;
+
+	    }
+	    //printf("111###################################\n");
+	    //printf("this is main\n");
+	    sleep(1);
+
+	    if(soft_dog[0]>0&&soft_dog[1]>0) //xxz
+	    {
+		soft_dog[0]--;
+		soft_dog[1]--;
+		write(wt_fd,"a",1);
+		//printf("222###################################\n");
+		//printf("feed watchdog!\n");
+		//printf("333###################################\n");
+#ifdef DEBUG
+#endif
+		//sleep(1);
+	    }
+
+	    //printf("1 is %d,2 is %d,xxz is %d\n",soft_dog[0],soft_dog[1],xxz);
+#ifdef DEBUG
+	    //printf("m is %d,n is %d\n",m,n);
+	    printf("\n\n");
+#endif
+	    sleep(1);
+	    //printf("end###################################\n\n");
+	}
     }
-	
 }
 
-int open_dev(char *Dev)
-{
-    int fd=open(Dev,O_RDWR|O_NOCTTY|O_NDELAY|O_NONBLOCK);
-    return fd;
-}
+/***********************pthread****************************************/
 void *thread_udp_send()
 {
-
-
-    int sock;
-    sock = socket(AF_INET,SOCK_DGRAM,IPPROTO_UDP);
-    printf("sock is %d\n",sock);
-    if(sock < 0)
-    {
-	printf("socket failed.\r\n");
-    }
-
     int n=0;
+    unsigned int fromLen;
     struct sockaddr_in toAddr;
     struct sockaddr_in fromAddr;
-    unsigned int fromLen;
     char sends[128]="hello how are you?";//recvs[128];
-
-
 
     while(1)  
     {
 	m++;
 	if(soft_dog[0]<8)
 	{
-	    soft_dog[0]=8;
+	    soft_dog[0]=18;
 	}
-
-	//sock = socket(AF_INET,SOCK_DGRAM,IPPROTO_UDP);
-	//printf("sock is %d\n",sock);
-	//if(sock < 0)
-	//	{
-	//		printf("socket failed.\r\n");
-	//	}
-#if 0
-	struct timeval timeout={3,0};
-	fd_set fds;
-	FD_ZERO(&fds);
-	FD_SET(sock,&fds);
-#endif
 
 	memset(&toAddr,0,sizeof(toAddr));
 	toAddr.sin_family=AF_INET;
@@ -305,108 +362,52 @@ void *thread_udp_send()
 	toAddr.sin_port = htons(8888);
 	bzero(&(toAddr.sin_zero),8);
 	//flag=1;
+	sendto(sock,"2222",4,0,(struct sockaddr*)&toAddr,sizeof(struct sockaddr_in));
 	int i;
-	for(i=1;i<15;++i)
+	for(i=0;i<14;++i)
 	{
 	    if(flag[i]==1)
-		//if(1==1)
 	    {
-#if 0
-		sock = socket(AF_INET,SOCK_DGRAM,IPPROTO_UDP);
-		printf("sock is %d\n",sock);
-		if(sock < 0)
-		{
-		    printf("socket failed.\r\n");
-		    break;
-		}
-#endif
 		printf("flag[%d] is %d\n",i,flag[i]);
 		flag[i]=0;
 		sem_wait(&sem1);
-		//	pthread_mutex_lock(&mutex1);
+		pthread_mutex_lock(&mutex1);
 		int send_num=0;
-		bridge_buff[i][3]=0x01;
+		bridge_buff[i][3]=0x02;//arm flag
 		send_num=sendto(sock,bridge_buff[i],26,0,(struct sockaddr*)&toAddr,sizeof(struct sockaddr_in));
 		printf("send number is %d\n",send_num);
 		//sendto(sock,sends,4,0,(struct sockaddr*)&toAddr,sizeof(struct sockaddr_in));
 		//sendto(sock,sends,12,0,(struct sockaddr*)&toAddr,sizeof(struct sockaddr_in));
 		fromLen = sizeof(fromAddr);
 
-		//	pthread_mutex_unlock(&mutex1); 
+		pthread_mutex_unlock(&mutex1); 
 		sem_post(&sem1);
-		//close(sock);
 		usleep(200000);
 		usleep(200000);
 		usleep(200000);
 	    }
-
-#if 0
-	    switch(select(sock+1,&fds,NULL,NULL,&timeout)>0)
-	    {
-		case -1:
-		    //	printf("it is -1\n");
-		    break;
-		case 0:
-		    //	printf("it is 0\n");
-		    break;
-		default:
-		    if(FD_ISSET(sock,&fds))
-
-		    {
-			printf("sucess\n\n");
-			if(n=recvfrom(sock,recvs,2,0,NULL,NULL)==0)
-			{
-			    printf("erro\n");
-			}
-			else
-			{
-			    //printf("_____%s",recvs);
-			    car_number=(int)(*recvs);
-			    printf("car numberis _%d,geweiis %d,shiwei is %d\n",car_number,car_number%10,car_number/10);
-			    car_direct_left=0x01&*(recvs+1);
-			    car_direct_right=(0x02&*(recvs+1))>>1;
-			    printf("_____%d\n",car_direct_right);
-			    printf("_____%d\n",car_direct_left);
-			    //	printf("_____%x\n",*(recvs+2));
-			    //	printf("_____%x\n",*(recvs+3));
-			    //	exit(0);
-			}
-		    }
-	    }
-#endif
 	}
-
-	//close(sock);
-	//	usleep(500000);
 	sleep(3);
     }
 }
 
 void *thread_udp_recv()
 {
-    int len,sock;
-    struct timeval timeout_udp={4,0};
-    fd_set fds;
-
-    sock = socket(AF_INET,SOCK_DGRAM,IPPROTO_UDP);
-    printf("sock is %d\n",sock);
-    if(sock < 0)
-    {
-	printf("socket failed.\r\n");
-    }
-
+    int len;
     struct sockaddr_in my_addr,their_addr;
     struct sockaddr_in addr;
+
     bzero(&my_addr,sizeof(my_addr));
     my_addr.sin_family=AF_INET;//ipv4
     my_addr.sin_port=htons(8888);
     my_addr.sin_addr.s_addr=htonl(INADDR_ANY);
 
-    if((ret=bind(sock,(struct sockaddr *)&my_addr,sizeof(struct sockaddr)))==-1)
+    if(bind(sock,(struct sockaddr *)&my_addr,sizeof(struct sockaddr))==-1)
     {
 	printf("error in binding\n");
     }
-    printf("******************************************************%d bind\n",ret);
+    struct timeval timeout_udp={4,0};
+    fd_set fds;
 
     while(1)
     {
@@ -414,6 +415,11 @@ void *thread_udp_recv()
 	timeout_udp.tv_usec=0;
 	FD_ZERO(&fds);
 	FD_SET(sock,&fds);
+	printf("+++++++++++++this is recv+++++++++++++++++\n");
+	//recvfrom(sock,udp_recv,2,0,(struct sockaddr *)&addr,&len);
+	//printf("0x%x,0x%x\n",*udp_recv,*(udp_recv+1));
+	//printf("%d,%d\n",*udp_recv,*(udp_recv+1));
+
 	switch(select(sock+1,&fds,NULL,NULL,&timeout_udp)>0)
 	{
 	    case -1:
@@ -445,12 +451,6 @@ void *thread_udp_recv()
 		    printf("udp_recv:post sem2+++\n");
 		}
 	}
-
-	printf("+++++++++++++haha this is recv+++++++++++++++++\n");
-	recvfrom(sock,udp_recv,2,0,(struct sockaddr *)&addr,&len);
-	printf("0x%x,0x%x\n",*udp_recv,*(udp_recv+1));
-	printf("%d,%d\n",*udp_recv,*(udp_recv+1));
-	sleep(1);
     }
 }
 void *thread_led_display()
@@ -465,41 +465,23 @@ void *thread_led_display()
 	n++;
 	if(soft_dog[1]<8)
 	{
-	    soft_dog[1]=8;
+	    soft_dog[1]=18;
 	}
 	sem_wait(&sem2);
-	pthread_mutex_lock(&mutex2);
+	pthread_mutex_lock(&mutex2);//33333
 
 	unsigned char left=0;
 	unsigned char right=0;
-	for(j=0;j<NODENUM;j++)
-	{
-	    //for(k=0;k<4;k++)
-	    for(k=0;k<3;k++)
-	    {
-		left+=park_info.left[j][k];
-		//right+=park_info.right[j][k];//xxyy
-	    }
-	}
 
-#ifdef DEBUG
-	printf("left is:%d,right is: %d!\n",left,right);
-#endif
-	//shiwei=7;
-	shiwei=(int)((3*NODENUM-left-right)/10)%10;
-	//gewei=(unsigned char)(200-right-left)%10;
-	gewei=(unsigned char)(3*NODENUM-right-left)%10;
 
 #ifdef DEBUG
 	printf("gewei is:%d,shiwei is: %d!\n",gewei,shiwei);
 #endif
 
 	fd_left=open_dev("/dev/ttySAC2");
-	//fd_right=open_dev("/dev/ttySAC1");//????????
+	fd_right=open_dev("/dev/ttySAC1");
 	set_speed(fd_left,115200);
-	printf("this is set speed fd_left\n");
 	set_speed(fd_right,115200);
-	printf("this is set speed fd_right\n");
 	if(fd_left<0)
 	{
 	    printf("open ttysac1 erro!\n");
@@ -509,7 +491,7 @@ void *thread_led_display()
 	    printf("open ttysac1 erro!\n");
 	}
 
-	    //shiwei;
+	//shiwei;
 	led_send_left[1]=udp_recv[0]/10;
 	led_send_right[1]=udp_recv[0]/10;
 	//gewei;
@@ -520,24 +502,21 @@ void *thread_led_display()
 	led_send_left[2]=0;
 
 	//B3 B4
-	led_send_left[3]=1;
-	led_send_right[3]=0;
-	if(1==come)
+	led_send_left[3]=2;
+	led_send_right[3]=1;
+
+	if(come==1)
 	{
-	nwrite=write(fd_left,(unsigned char *)led_send_left,4);
-	{
-	    if(nwrite<0)
-		printf("write err0!\n");
-	    //else 
-	    //		printf("+++++++++++++++++++++++++++++++++++++++++++++\n");
-	}
-	nwrite=write(fd_right,(unsigned char *)led_send_right,4);
-	{
-	    if(nwrite<0)
-		printf("write err0!\n");
-	    //else 
-	    //		printf("+++++++++++++++++++++++++++++++++++++++++++++\n");
-	}
+	    nwrite=write(fd_left,(unsigned char *)led_send_left,4);
+	    {
+		if(nwrite<0)
+		    printf("write err0!\n");
+	    }
+	    nwrite=write(fd_right,(unsigned char *)led_send_right,4);
+	    {
+		if(nwrite<0)
+		    printf("write err0!\n");
+	    }
 	}
 	if((100-left)>0)
 	{
@@ -558,9 +537,9 @@ void *thread_led_display()
 	close(fd_left);
 	close(fd_right);
 
-	pthread_mutex_unlock(&mutex2);
+	pthread_mutex_unlock(&mutex2);//4444
 	sem_post(&sem2);
-	sleep(1);
+	sleep(3);
     }
 }
 void analyse(char * buff)
@@ -599,186 +578,79 @@ void analyse(char * buff)
 
 	    printf("node id is ||0x%x||\n",*(unsigned short *)(buff+i+7));
 	    unsigned short tem_nid=*(unsigned short *)(buff+i+7);
-	    int bridge_index=0,flag_index=0;
+	    int bridge_index;
 	    switch(tem_nid)
 	    {
 		case 0x91cf:
-		    bridge_index=1;
-		    flag_index=1;
+		    printf("+++++((((((9++++++\n");
+		    bridge_index=0;
+		    flag[0]=1;
 		    break;
-		case 0xefec:
-		    bridge_index=2;
-		    flag_index=2;
+		case 0x25a4:
+		    bridge_index=1;
+		    flag[1]=1;
 		    break;
 		case 0x6f4a:
-		    bridge_index=3;
-		    flag_index=3;
+		    bridge_index=2;
+		    flag[2]=1;
 		    break;
 		case 0x3c77:
-		    bridge_index=4;
-		    flag_index=4;
+		    bridge_index=3;
+		    flag[3]=1;
 		    break;
 		case 0x87a1:
-		    bridge_index=5;
-		    flag_index=5;
+		    bridge_index=4;
+		    flag[4]=1;
 		    break;
-		case 0xc41f:
-		    bridge_index=6;
-		    flag_index=6;
+		case 0x4830:
+		    bridge_index=5;
+		    flag[5]=1;
 		    break;
 		case 0x87f7:
-		    bridge_index=7;
-		    flag_index=7;
+		    bridge_index=6;
+		    flag[6]=1;
 		    break;
-		case 0x83cc:
-		    bridge_index=8;
-		    flag_index=8;
+		case 0xd1e7:
+		    bridge_index=7;
+		    flag[7]=1;
 		    break;
 		case 0xeac6:
-		    bridge_index=9;
-		    flag_index=9;
+		    bridge_index=8;
+		    flag[8]=1;
 		    break;
 		case 0xdb01:
-		    bridge_index=10;
-		    flag_index=10;
+		    bridge_index=9;
+		    flag[9]=1;
 		    break;
 		case 0x92e0:
+		    bridge_index=10;
+		    flag[10]=1;
+		    break;
+		case 0xf61:
 		    bridge_index=11;
-		    flag_index=11;
+		    flag[11]=1;
 		    break;
-		case 0x415:
+		case 0xf858:
 		    bridge_index=12;
-		    flag_index=12;
-		    break;
-		case 0xd221:
-		    bridge_index=13;
-		    flag_index=13;
+		    flag[12]=1;
 		    break;
 		case 0x284e:
-		    bridge_index=14;
-		    flag_index=14;
+		    bridge_index=13;
+		    flag[13]=1;
 		    break;
+		default:
+		    bridge_index=14;
 	    }
-	    //printf("tail is %x\n",*(unsigned char *)(buff+i+24));
-	    //printf("tail is %x\n",*(unsigned char *)(buff+i+25));
-	    //checksum=;
-	    //if(*(unsigned short)(buff+i+22))==checksum;
-	    //if(*(buff+24)==)
-
 	    //printf("wait sem1 \n");
 	    sem_wait(&sem1);
-	    //printf("wait sem1 \n");
 	    pthread_mutex_lock(&mutex1);
 	    memcpy((unsigned char *)bridge_buff[bridge_index],(unsigned char *)(buff+t),26);
-	    flag[flag_index]=1;
 	    pthread_mutex_unlock(&mutex1); 
 	    sem_post(&sem1);
 
-#if 0
-	    node_id=*(unsigned short *)(buff+t+6);
 
-	    int nid;
-	    switch(node_id)
-	    {
-		case 0x2624:nid=0;
-			    break;
-		case 0x624:nid=1;
-			   printf("********************************************************************************************\n");
-			   break;
-		case 0x3:nid=2;
-			 break;
-#if 0
-		case 0x4:nid=3;
-			 break;
-		case 0x5:nid=4;
-			 break;
-		case 0x6:nid=1;
-			 break;
-		case 0x7:nid=1;
-			 break;
-		case 0x8:nid=1;
-			 break;
-		case 0x9:nid=1;
-			 break;
-		case 0x10:nid=1;
-			  break;
-		case 0x11:nid=1;
-			  break;
-		case 0x12:nid=1;
-			  break;
-		case 0x13:nid=1;
-			  break;
-		case 0x14:nid=1;
-			  break;
-#endif
-		default:
-			  printf("node_id error\n");
-			  nid=4;
-			  //return;
-	    }
-#if 0
-	    for(j=0;j<4;j++)
-	    {
-		if(*(unsigned char *)(buff+10+t+j)>1)
-		{
-		    *(unsigned char *)(buff+10+t+j)=0;
-		}
-	    }
-#endif
-	    printf("wait sem2 \n");
-	    sem_wait(&sem2);
-	    pthread_mutex_lock(&mutex2);
-#endif
-#if 0
-	    printf("wait sem2 \n");
-	    //printf("+++++++++++++++++=\n");
-
-	    if(nid<DIV)//we assume that if node_id<25 node is one the left
-	    {
-		for(j=0;j<3;j++)
-		{
-		    park_info.left[nid][j]=(*(unsigned short *)(buff+10+t+2*j)<200);
-#ifdef DEBUG
-		    printf("______x________0x%x\n",*(unsigned short *)(buff+10+t+2*j));
-		    printf("______x________%d\n",*(unsigned short *)(buff+10+t+2*j));
-		    printf("______________0x%x\n",park_info.left[nid][j]);
-#endif
-		}
-
-	    }
-	    else
-	    {
-
-		for(j=0;j<4;j++)
-		{
-		    park_info.right[nid][j]=(*(unsigned short *)(buff+10+t+2*j)<200);//ddddd
-		}
-	    }
-
-
-	    int m=0,n=0;
-	    for(j=0;j<NODENUM;j++)
-	    {
-		for(k=0;k<4;k++)
-		{
-		    m+=park_info.left[j][k];
-		    //n+=park_info.right[j][k];
-		}
-	    }
-
-	    //park_info.left_remain=3-m;
-	    park_info.left_remain=3*NODENUM-m;
-	    //park_info.right_remain=3*NODENUM-n;
-	    park_info.total_remain=park_info.left_remain;//+park_info.right_remain;
-	    all=park_info.total_remain;
-
-	    //printf("remain left:%d,remain right:%d\n",park_info.left_remain,park_info.right_remain);
-#ifdef DEBUG
-	    printf("remain left:%d\n",park_info.left_remain);
-#endif
-#endif
-	    pthread_mutex_unlock(&mutex2);
-	    sem_post(&sem2);
+	    //pthread_mutex_unlock(&mutex2);//1111
+	    //sem_post(&sem2);
 	}
     }
     //sleep(1);
@@ -994,6 +866,51 @@ void *thread_read_tty()
     //   xxz=1;
 }
 
+
+void *reg()
+{
+    //printf("come into reg\n");
+    reg_flag=0;
+    close(fd_sig);
+    fd_sig=open("/dev/ttySAC0",O_RDWR|O_NOCTTY|O_NONBLOCK);//|O_NOCTTY|O_NDELAY|O_NONBLOCK);//|O_NONBLOCK);
+    if(fd_sig<1)
+    {
+	printf("register interruput failed\n");
+	return;
+    }
+    saio.sa_handler = signal_handler_IO; 
+    saio.sa_flags = 0; 
+    saio.sa_restorer = NULL; 
+    sigaction(SIGIO,&saio,NULL); 
+
+    fcntl(fd_sig, F_SETOWN, getpid()); 
+    fcntl(fd_sig, F_SETFL, FASYNC); //uuuuuuu
+    tcflush(fd_sig, TCIOFLUSH);    
+    //printf("have register intterrupt\n");
+    reg_flag=1;
+}
+/****************************function****************************************************/
+void register_interrupt()
+{
+    reg_inter_fail=1;
+    close(fd_sig);
+    fd_sig=open("/dev/ttySAC0",O_RDWR|O_NOCTTY|O_NONBLOCK);//|O_NOCTTY|O_NDELAY|O_NONBLOCK);//|O_NONBLOCK);
+    if(fd_sig<1)
+    {
+	printf("register interruput failed\n");
+	return;
+    }
+    saio.sa_handler = signal_handler_IO; 
+    saio.sa_flags = 0; 
+    saio.sa_restorer = NULL; 
+    sigaction(SIGIO,&saio,NULL); 
+
+    fcntl(fd_sig, F_SETOWN, getpid()); 
+    fcntl(fd_sig, F_SETFL, FASYNC); 
+    tcflush(fd_sig, TCIOFLUSH);    
+    printf("have register intterrupt\n");
+    reg_inter_fail=0;
+}
 void show(unsigned char *buff)
 {
     int i;
@@ -1003,18 +920,22 @@ void show(unsigned char *buff)
 	printf("0x%x-->",*(unsigned char *)(buff+i));
     }
 }
-void set_speed(int fd, int speed){
+void set_speed(int fd, int speed)
+{
     unsigned int   i;
     int   status;
     struct termios   Opt;
     tcgetattr(fd, &Opt);
-    for ( i= 0; i < sizeof(speed_arr) / sizeof(int); i++) {
-	if (speed == name_arr[i]) {    
+    for ( i= 0; i < sizeof(speed_arr) / sizeof(int); i++) 
+    {
+	if (speed == name_arr[i]) 
+	{    
 	    tcflush(fd, TCIOFLUSH);    
 	    cfsetispeed(&Opt, speed_arr[i]);
 	    cfsetospeed(&Opt, speed_arr[i]);  
 	    status = tcsetattr(fd, TCSANOW, &Opt);
-	    if (status != 0) {   
+	    if (status != 0) 
+	    {   
 		perror("tcsetattr fd1");
 		return;    
 	    }   
@@ -1030,7 +951,7 @@ void set_speed(int fd, int speed){
  *@param stopbits 类型 int 停止位   取值为 1 或者2*
  *@param parity 类型 int 效验类型 取值为N,E,O,,S
  */
-int set_Parity(int fd,int databits,int stopbits,int parity)
+int set_patity(int fd,int databits,int stopbits,int parity)
 {
     struct termios options;
     if ( tcgetattr( fd,&options) != 0)
@@ -1116,137 +1037,8 @@ int set_Parity(int fd,int databits,int stopbits,int parity)
     }
     return (TRUE);
 }
-void register_interrupt()
+int open_dev(char *dev)
 {
-    reg_inter_fail=1;
-    close(fd_sig);
-    fd_sig=open("/dev/ttySAC0",O_RDWR|O_NOCTTY|O_NONBLOCK);//|O_NOCTTY|O_NDELAY|O_NONBLOCK);//|O_NONBLOCK);
-    if(fd_sig<1)
-    {
-	printf("register interruput failed\n");
-	return;
-    }
-    saio.sa_handler = signal_handler_IO; 
-    saio.sa_flags = 0; 
-    saio.sa_restorer = NULL; 
-    sigaction(SIGIO,&saio,NULL); 
-
-    fcntl(fd_sig, F_SETOWN, getpid()); 
-    fcntl(fd_sig, F_SETFL, FASYNC); //uuuuuuu
-    tcflush(fd_sig, TCIOFLUSH);    
-    printf("have register intterrupt\n");
-    reg_inter_fail=0;
+    int fd=open(dev,O_RDWR|O_NOCTTY|O_NDELAY|O_NONBLOCK);
+    return fd;
 }
-void *reg()
-{
-    //printf("come into reg\n");
-    reg_flag=0;
-    close(fd_sig);
-    fd_sig=open("/dev/ttySAC0",O_RDWR|O_NOCTTY|O_NONBLOCK);//|O_NOCTTY|O_NDELAY|O_NONBLOCK);//|O_NONBLOCK);
-    if(fd_sig<1)
-    {
-	printf("register interruput failed\n");
-	return;
-    }
-    saio.sa_handler = signal_handler_IO; 
-    saio.sa_flags = 0; 
-    saio.sa_restorer = NULL; 
-    sigaction(SIGIO,&saio,NULL); 
-
-    fcntl(fd_sig, F_SETOWN, getpid()); 
-    fcntl(fd_sig, F_SETFL, FASYNC); //uuuuuuu
-    tcflush(fd_sig, TCIOFLUSH);    
-    //printf("have register intterrupt\n");
-    reg_flag=1;
-}
-void feed_dog()
-{
-    while(1)
-    {
-	//printf("begin##############xxz is %d#####################\n",xxz);
-	count++;
-	if(count>10000)
-	    count=0;
-	if(reg_flag==0&&xxz==1||(count%5==0&&xxz==1))
-	    //if(count%3==0&&xxz==1)
-	{
-	    interfailcnt++;
-	    ret=pthread_create(&id_reg_inter,NULL,(void *)reg,NULL);
-	    usleep(10000);
-	    if(reg_flag==0)
-	    {
-
-		pthread_cancel(id_reg_inter);
-		printf("have canceled....................\n");
-		pthread_join(id_reg_inter,NULL);
-		//reg_flag=1;
-	    }
-	    else
-	    {
-		pthread_join(id_reg_inter,NULL);
-	    }
-	    //if(reg_inter_fail==1)
-	    //	reg_inter_fail=0;
-
-	}
-	//printf("111###################################\n");
-	//printf("this is main\n");
-	sleep(1);
-
-	if(soft_dog[0]>0&&soft_dog[1]>0) //xxz
-	{
-	    soft_dog[0]--;
-	    soft_dog[1]--;
-	    write(fd_watchdog,"a",1);
-	}
-
-#ifdef DEBUG
-	//	printf("m is %d,n is %d\n",m,n);
-#endif
-	sleep(1);
-    }
-}
-/**********************New fuction******************************************/
-void error_log(const char *string)
-{
-
-}
-int check_ip(int argc_local,char **argv_local)
-{
-    if(1==argc_local)
-    {
-	memcpy(ip,"210.77.19.151",13);
-	printf("%s\n",ip);
-	return 1;
-    }
-    else if(2==argc_local)
-    {
-	memcpy(ip,argv_local[1],strlen(argv_local[1]));
-	printf("%s\n",ip);
-	printf("%d\n",strlen(argv_local[1]));
-	return 1;
-    }
-    else
-    {
-	return 0;
-    }
-}
-
-int init_watchdog()
-{
-    fd_watchdog = open("/dev/watchdog", O_RDWR);
-    int time=30;
-    ioctl(fd_watchdog, WDIOC_SETTIMEOUT, &time);
-    if(fd_watchdog<=0)
-    {
-	printf("open watchdog  device is wrong!\n");
-	return 0;
-    }
-    else
-    {
-	printf("open the watchdog\n");
-	return 1;
-    }
-}
-/**********************New fuction******************************************/
-
