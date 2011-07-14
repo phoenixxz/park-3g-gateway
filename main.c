@@ -22,12 +22,11 @@
 #define NODENUM 14
 #define DIV 3
 /*************************Global Var***************************/
-static char ip[15];/*remote pc ip address;*/
-int ret;           /*temp return value;*/
-sem_t sem1,sem2,sem_dog,sem_sig; /*declare semaphore */
+static char remote_ip[16]="210.77.19.151";       /*remote pc ip address;*/
+static int ret;                                  /*temp return value;*/
+sem_t sem1,sem2,sem_dog,sem_sig;                 /*declare semaphore */
 int fd_watchdog; 
 int soft_dog[2]={10,10};
-static int come=0;
 /*************************Global Var***************************/
 
 static int sock;
@@ -37,7 +36,10 @@ int interfailcnt=0;
 int reg_inter_fail=0;
 int reg_flag=1;
 int thread_flag=0,crash_cnt=0,count=0,tem=0;
-volatile int xxz=1,cnt=0;//volatile is needed
+
+volatile int xxz=1,cnt=0;                        /*volatile is needed*/
+volatile static int come=0;
+
 int fault_cnt=0,sig_cnt=0,sig_cnt1=0;
 int flag_inter=1;
 int m=0,n=0;
@@ -151,7 +153,7 @@ int init_watchdog();
 //static char bridge_buff[512];
 int main(int argc,char **argv)
 {
-/*check ip remote PC IP address*/
+    /*check remote PC IP address*/
     if((ret=check_ip(argc,argv))==1)
     {
 	printf("success,%d\n",ret);
@@ -159,49 +161,20 @@ int main(int argc,char **argv)
     else
     {
 	printf("ret is %d \n",ret);
-//	error_log("check ip erro");
-	return 0;
+	//	error_log("check ip erro");
+	exit(1);
     }
 
     /**************************************************************/
-    //net_connect();
-    //run_check_connect();
+    run_net_connect();      /*run 3g pppd call to connect to the internet*/
+    run_check_connect();    /*run daemon for net connect status check,if disconnet*/
+			    /*ed,redial......*/
+    run_remote_update_d();  /*run daemon for remote update the program in gateway*/
+    run_sqlite_d();         /*run daemon for sqlite in gateway*/
 
-
-
-
-    /**************************************************************/
-    pid_t pid;
-    if((pid=fork())<0)
-    {
-	printf("fork erro!\n");
-    }
-    else if(pid==0)
-    {
-	char *env_init[]={"USER=xxz","PATH=/home/xxz/project/arm_update/",NULL};
-	if(execle("/home/xxz/project/arm_update/udpclient","udpclient",(char *)0,env_init)<0);
-	{
-	    perror("run udp-client error\n");
-	}
-    }
-    else /*main*/
-    {
-	printf("in main :%d\n",pid);
-	printf("in main :%d\n",pid);
-
-#if 0
-	sock = socket(AF_INET,SOCK_DGRAM,IPPROTO_UDP);
-	printf("sock is %d\n",sock);
-	if(sock < 0)
-	{
-	    printf("socket failed.\r\n");
-	}
-#endif
-
-
-//	pthread_mutex_init(&mutex1,NULL); 
-//	pthread_mutex_init(&mutex2,NULL);
-//	pthread_mutex_init(&mutex_dog,NULL);
+	pthread_mutex_init(&mutex1,NULL); 
+	pthread_mutex_init(&mutex2,NULL);
+	pthread_mutex_init(&mutex_dog,NULL);
 	sem_init(&sem1,0,1);
 	sem_init(&sem2,0,1);
 	sem_init(&sem_dog,0,1);
@@ -210,22 +183,21 @@ int main(int argc,char **argv)
 	ret = pthread_create(&id_udp_send,NULL,(void *)thread_udp_send,NULL);
 	if(ret != 0)
 	{
-	    printf("Create pthread error!\n");
+	    error_log("create thread udp send error");
 	}
 	sleep(1);
-	printf("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n");
+
 	ret = pthread_create(&id_udp_recv,NULL,(void *)thread_udp_recv,NULL);
-	printf("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n");
 	if(ret != 0)
 	{
-	    printf("Create pthread error!\n");
+	    error_log("create thread udp recv error");
 	}
-	printf("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n");
 	sleep(1);
+
 	ret=pthread_create(&id_led_display,NULL,(void *)thread_led_display,NULL);
 	if(ret!= 0)
 	{
-	    printf("Create pthread error!\n");
+	    error_log("create thread led display error");
 	}
 
 	/***************signal***added by xxz*************************/
@@ -233,25 +205,29 @@ int main(int argc,char **argv)
 	speed_t baud_rate_i,baud_rate_o;
 	fd_sig=open("/dev/ttySAC0",O_RDWR|O_NOCTTY|O_NONBLOCK);//|O_NOCTTY|O_NDELAY|O_NONBLOCK);//|O_NONBLOCK);
 	if(fd_sig==-1)
-	    printf("can not open the COM1!\n");
-	else
-	    printf("open ttySAC0 ok!\n");
-	set_speed(fd_sig,115200);
-	printf("fd_sig set speed ok\n");
-	if (set_parity(fd_sig,8,1,'N')== FALSE)
 	{
-	    printf("Set Parity Error\n");
+	    error_log("open ttySAC0 error");
 	    exit(1);
 	}
-	int i=0;
+
+	if (set_speed(fd_sig,115200)== FALSE)
+	{
+	    error_log("set speed of ttySAC0 error");
+	    exit(1);
+	}
+
+	if (set_parity(fd_sig,8,1,'N')== FALSE)
+	{
+	    error_log("set parity of ttySAC0 error");
+	    exit(1);
+	}
 
 	register_interrupt();
 
 	ret=init_watchdog();
 	feed_dog();
 	while(1);
-    }
-	
+
 }
 
 int open_dev(char *Dev)
@@ -302,7 +278,7 @@ void *thread_udp_send()
 
 	memset(&toAddr,0,sizeof(toAddr));
 	toAddr.sin_family=AF_INET;
-	toAddr.sin_addr.s_addr=inet_addr(ip);
+	toAddr.sin_addr.s_addr=inet_addr(remote_ip);
 	//toAddr.sin_addr.s_addr=inet_addr("192.168.1.201");
 	//toAddr.sin_addr.s_addr=inet_addr("192.168.1.102");
 	toAddr.sin_port = htons(8888);
@@ -512,7 +488,7 @@ void *thread_led_display()
 	    printf("open ttysac1 erro!\n");
 	}
 
-	    //shiwei;
+	//shiwei;
 	led_send_left[1]=udp_recv[0]/10;
 	led_send_right[1]=udp_recv[0]/10;
 	//gewei;
@@ -527,20 +503,20 @@ void *thread_led_display()
 	led_send_right[3]=0;
 	if(1==come)
 	{
-	nwrite=write(fd_left,(unsigned char *)led_send_left,4);
-	{
-	    if(nwrite<0)
-		printf("write err0!\n");
-	    //else 
-	    //		printf("+++++++++++++++++++++++++++++++++++++++++++++\n");
-	}
-	nwrite=write(fd_right,(unsigned char *)led_send_right,4);
-	{
-	    if(nwrite<0)
-		printf("write err0!\n");
-	    //else 
-	    //		printf("+++++++++++++++++++++++++++++++++++++++++++++\n");
-	}
+	    nwrite=write(fd_left,(unsigned char *)led_send_left,4);
+	    {
+		if(nwrite<0)
+		    printf("write err0!\n");
+		//else 
+		//		printf("+++++++++++++++++++++++++++++++++++++++++++++\n");
+	    }
+	    nwrite=write(fd_right,(unsigned char *)led_send_right,4);
+	    {
+		if(nwrite<0)
+		    printf("write err0!\n");
+		//else 
+		//		printf("+++++++++++++++++++++++++++++++++++++++++++++\n");
+	    }
 	}
 	if((100-left)>0)
 	{
@@ -1218,14 +1194,14 @@ int check_ip(int argc_local,char **argv_local)
 {
     if(1==argc_local)
     {
-	memcpy(ip,"210.77.19.151",13);
-	printf("%s\n",ip);
+	memcpy(remote_ip,"210.77.19.151",13);
+	printf("%s\n",remote_ip);
 	return 1;
     }
     else if(2==argc_local)
     {
-	memcpy(ip,argv_local[1],strlen(argv_local[1]));
-	printf("%s\n",ip);
+	memcpy(remote_ip,argv_local[1],strlen(argv_local[1]));
+	printf("%s\n",remote_ip);
 	printf("%d\n",strlen(argv_local[1]));
 	return 1;
     }
@@ -1250,6 +1226,22 @@ int init_watchdog()
 	printf("open the watchdog\n");
 	return 1;
     }
+}
+run_net_connect()
+{
+    system("pppd call tdscdma &");
+}
+run_check_connect()
+{
+    system("pppd call tdscdma &");
+}
+run_remote_update_d()
+{
+    system("pppd call tdscdma &");
+}
+run_sqlite_d()
+{
+    system("pppd call tdscdma &");
 }
 /**********************New fuction******************************************/
 
