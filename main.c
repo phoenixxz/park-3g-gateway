@@ -37,7 +37,7 @@ int interfailcnt=0;
 int reg_inter_fail=0;
 int reg_flag=1;
 int thread_flag=0,crash_cnt=0,count=0,tem=0;
-int xxz=1,cnt=0;
+volatile int xxz=1,cnt=0;//volatile is needed
 int fault_cnt=0,sig_cnt=0,sig_cnt1=0;
 int flag_inter=1;
 int m=0,n=0;
@@ -238,7 +238,7 @@ int main(int argc,char **argv)
 	    printf("open ttySAC0 ok!\n");
 	set_speed(fd_sig,115200);
 	printf("fd_sig set speed ok\n");
-	if (set_Parity(fd_sig,8,1,'N')== FALSE)
+	if (set_parity(fd_sig,8,1,'N')== FALSE)
 	{
 	    printf("Set Parity Error\n");
 	    exit(1);
@@ -1033,7 +1033,7 @@ void set_speed(int fd, int speed){
  *@param stopbits 类型 int 停止位   取值为 1 或者2*
  *@param parity 类型 int 效验类型 取值为N,E,O,,S
  */
-int set_Parity(int fd,int databits,int stopbits,int parity)
+int set_parity(int fd,int databits,int stopbits,int parity)
 {
     struct termios options;
     if ( tcgetattr( fd,&options) != 0)
@@ -1252,4 +1252,5 @@ int init_watchdog()
     }
 }
 /**********************New fuction******************************************/
+
 
