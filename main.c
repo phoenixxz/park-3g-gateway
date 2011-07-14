@@ -201,8 +201,6 @@ int main(int argc,char **argv)
 	}
 
 	/***************signal***added by xxz*************************/
-	struct termios term;
-	speed_t baud_rate_i,baud_rate_o;
 	fd_sig=open("/dev/ttySAC0",O_RDWR|O_NOCTTY|O_NONBLOCK);//|O_NOCTTY|O_NDELAY|O_NONBLOCK);//|O_NONBLOCK);
 	if(fd_sig==-1)
 	{
@@ -982,18 +980,22 @@ void show(unsigned char *buff)
 	printf("0x%x-->",*(unsigned char *)(buff+i));
     }
 }
-void set_speed(int fd, int speed){
+int set_speed(int fd, int speed)
+{
     unsigned int   i;
     int   status;
     struct termios   Opt;
     tcgetattr(fd, &Opt);
-    for ( i= 0; i < sizeof(speed_arr) / sizeof(int); i++) {
-	if (speed == name_arr[i]) {    
+    for ( i= 0; i < sizeof(speed_arr) / sizeof(int); i++) 
+    {
+	if (speed == name_arr[i]) 
+	{    
 	    tcflush(fd, TCIOFLUSH);    
 	    cfsetispeed(&Opt, speed_arr[i]);
 	    cfsetospeed(&Opt, speed_arr[i]);  
 	    status = tcsetattr(fd, TCSANOW, &Opt);
-	    if (status != 0) {   
+	    if (status != 0) 
+	    {   
 		perror("tcsetattr fd1");
 		return;    
 	    }   
@@ -1074,7 +1076,7 @@ int set_parity(int fd,int databits,int stopbits,int parity)
     }
     /* Set input parity option */
     if ((parity != 'n')&&(parity != 'N'))
-	options.c_iflag |= INPCK;
+    options.c_iflag |= INPCK;
     options.c_cc[VTIME] = 5; // 0.5 seconds
     options.c_cc[VMIN] = 1;
     options.c_cflag &= ~HUPCL;
