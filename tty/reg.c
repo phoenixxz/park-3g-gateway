@@ -31,8 +31,7 @@ int init_serial()
 
     sleep(3);
     close(comm_fd);
-    sleep(20);
-    exit(0);
+    return 1;
 }
 
 

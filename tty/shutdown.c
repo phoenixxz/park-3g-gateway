@@ -7,7 +7,7 @@
 int init_serial()
 {   
     int comm_fd;
-    const char *device_name = "/dev/ttyUSB0";
+    const char *device_name = "/dev/ttySAC0";
     struct termios tty_attr;
     int device_speed = B115200;
     comm_fd = open(device_name, O_RDWR, 0);

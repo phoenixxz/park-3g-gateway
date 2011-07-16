@@ -1,12 +1,6 @@
-echo ";;;;;;;;;;;;;;"
-led 1 0 
-led 3 0
-sleep 2
 ip=0
 while true
-led 2 0
 sleep 1 
-led 2 1
 do
 baidu=`ping -c 1 www.baidu.com | grep -o ttl`
 google=`ping -c 1 www.google.com | grep -o ttl`
@@ -28,7 +22,7 @@ ip=$(( $ip + 1 ))
     shut-tty
     sleep 3
     reg-net
-    sleep 3
+    sleep 80
     pppd call tdscdma
     pppdcall=$(($pppdcall+1))
     ip=0

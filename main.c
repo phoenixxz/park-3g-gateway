@@ -83,7 +83,7 @@ typedef unsigned short _packet_tail;
 #define PACKET_TAIL       0xAACC  
 //#endif
 
-void set_speed(int fd,int speed);
+int set_speed(int fd,int speed);
 
 int fd_temfile;
 pthread_mutex_t mutex1,mutex2,mutex_dog;  
@@ -167,7 +167,9 @@ int main(int argc,char **argv)
 
     /**************************************************************/
     run_net_connect();      /*run 3g pppd call to connect to the internet*/
+    sleep(60);
     run_check_connect();    /*run daemon for net connect status check,if disconnet*/
+    exit(0);
 			    /*ed,redial......*/
     run_remote_update_d();  /*run daemon for remote update the program in gateway*/
     run_sqlite_d();         /*run daemon for sqlite in gateway*/
@@ -1231,15 +1233,18 @@ int init_watchdog()
 }
 run_net_connect()
 {
+    system("/init-mu301&");
+    printf("this is init mu301\n");
+    sleep(90);
     system("pppd call tdscdma &");
 }
 run_check_connect()
 {
-    system("pppd call tdscdma &");
+    system("/new-ip.sh &");
 }
 run_remote_update_d()
 {
-    system("pppd call tdscdma &");
+    system(" &");
 }
 run_sqlite_d()
 {
