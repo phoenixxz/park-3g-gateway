@@ -95,22 +95,22 @@ unsigned char bridge_buff[14][26];
 
 #if 0
 int speed_arr[] = { B38400, B19200, B9600, B4800, B2400, B1200, B300,
-    B38400, B19200, B9600, B4800, B2400, B1200, B300, };
+	B38400, B19200, B9600, B4800, B2400, B1200, B300, };
 int name_arr[] = {38400, 19200, 9600, 4800, 2400, 1200, 300,
-    38400, 19200, 9600, 4800, 2400, 1200, 300, };
+	38400, 19200, 9600, 4800, 2400, 1200, 300, };
 #endif
 //#if 0
 typedef struct stru_packet{ 
-    _packet_header  packetHeader;     //0xaa55
-    _packet_length  packetLength;
-    _packet_type    packetType;   //0x1
-    _net_id         netID;        //0xa000
-    _node_id        nodeID;
-    _parent_id      parentID;
-    _park_state     parkState[4];  //0  available, 1  taken, 0xff  invalid
-    _time_stamp     timeStamp;
-    _crc            crCheck;      //先校验，后加DUMMY_BYTE
-    _packet_tail    packetTail;   //0xAACC
+	_packet_header  packetHeader;     //0xaa55
+	_packet_length  packetLength;
+	_packet_type    packetType;   //0x1
+	_net_id         netID;        //0xa000
+	_node_id        nodeID;
+	_parent_id      parentID;
+	_park_state     parkState[4];  //0  available, 1  taken, 0xff  invalid
+	_time_stamp     timeStamp;
+	_crc            crCheck;      //先校验，后加DUMMY_BYTE
+	_packet_tail    packetTail;   //0xAACC
 } packet;
 //#endif
 
@@ -120,12 +120,12 @@ packet park_packet;
 //#if 0
 typedef struct park
 {
-    //unsigned char left[NODENUM][4];
-    unsigned char left[NODENUM][4];
-    unsigned char right[NODENUM][4];
-    unsigned int left_remain;
-    unsigned int right_remain;
-    unsigned int total_remain;
+	//unsigned char left[NODENUM][4];
+	unsigned char left[NODENUM][4];
+	unsigned char right[NODENUM][4];
+	unsigned int left_remain;
+	unsigned int right_remain;
+	unsigned int total_remain;
 
 } info;
 info park_info;
@@ -153,26 +153,26 @@ int init_watchdog();
 //static char bridge_buff[512];
 int main(int argc,char **argv)
 {
-    /*check remote PC IP address*/
-    if((ret=check_ip(argc,argv))==1)
-    {
-	printf("success,%d\n",ret);
-    }
-    else
-    {
-	printf("ret is %d \n",ret);
-	//	error_log("check ip erro");
-	exit(1);
-    }
+	/*check remote PC IP address*/
+	if((ret=check_ip(argc,argv))==1)
+	{
+		printf("success,%d\n",ret);
+	}
+	else
+	{
+		printf("ret is %d \n",ret);
+		//	error_log("check ip erro");
+		exit(1);
+	}
 
-    /**************************************************************/
-    run_net_connect();      /*run 3g pppd call to connect to the internet*/
-    sleep(60);
-    run_check_connect();    /*run daemon for net connect status check,if disconnet*/
-    exit(0);
-			    /*ed,redial......*/
-    run_remote_update_d();  /*run daemon for remote update the program in gateway*/
-    run_sqlite_d();         /*run daemon for sqlite in gateway*/
+	/**************************************************************/
+	run_net_connect();      /*run 3g pppd call to connect to the internet*/
+	sleep(60);
+	run_check_connect();    /*run daemon for net connect status check,if disconnet*/
+	exit(0);
+	/*ed,redial......*/
+	run_remote_update_d();  /*run daemon for remote update the program in gateway*/
+	run_sqlite_d();         /*run daemon for sqlite in gateway*/
 
 	pthread_mutex_init(&mutex1,NULL); 
 	pthread_mutex_init(&mutex2,NULL);
@@ -185,14 +185,14 @@ int main(int argc,char **argv)
 	ret = pthread_create(&id_udp_send,NULL,(void *)thread_udp_send,NULL);
 	if(ret != 0)
 	{
-	    error_log("create thread udp send error");
+		error_log("create thread udp send error");
 	}
 	sleep(1);
 
 	ret = pthread_create(&id_udp_recv,NULL,(void *)thread_udp_recv,NULL);
 	if(ret != 0)
 	{
-	    error_log("create thread udp recv error");
+		error_log("create thread udp recv error");
 	}
 	sleep(1);
 
