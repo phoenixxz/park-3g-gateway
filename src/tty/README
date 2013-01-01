@@ -1,0 +1,3 @@
+"reg.c" to init the mu301,then run pppd call tdscdma
+cp init-mu301 to / in arm
+
